@@ -1,0 +1,186 @@
+---
+name: Jacob Debelak
+title: "debelak_project2"
+format: html
+---
+
+## NBA Dataset Analysis
+
+The "Nba data" dataset provides a comprehensive overview of over two decades of data from NBA players. It includes demographic information such as age, height, weight, and place of birth, alongside performance statistics like points, rebounds, and assists per game for each player who has been part of an NBA team's roster. Additional details such as the team played for, draft year, and draft round enrich our understanding of each player’s background and professional trajectory.\
+\
+**Key Variables:**
+
+-   **player_name**: The name of the player.
+
+-   **team_abbreviation**: Three-letter NBA team abbreviation.
+
+-   **age**: Age of the player.
+
+-   **player_height**: Height of the player in centimeters.
+
+-   **player_weight**: Weight of the player in kilograms.
+
+-   **college**: College attended.
+
+-   **country**: Country of origin.
+
+-   **draft_year, draft_round, draft_number**: Draft details.
+
+-   **gp (Games Played)**, **pts (Points per Game)**, **reb (Rebounds per Game)**, **ast (Assists per Game)**: Performance metrics.
+
+-   **season**: NBA season.
+
+This dataset allows for an exploration of changes within the NBA over time, offering insights into player development, diversity, and the impacts of the draft system on players' careers. Utilizing this data, I aim to address the following key questions:
+
+1.  **How have the physical attributes of NBA players, such as age, height, and weight, changed over the years?**
+
+2.  **What are the trends in players’ performance metrics (points, rebounds, assists) throughout their careers?**
+
+3.  **How has the proportion of international players in the NBA evolved over the seasons?**
+
+4.  **What is the impact of the NBA draft on players' careers, especially comparing drafted players to those undrafted?**
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+
+nba_data <- read.csv("/Users/Apple/Library/CloudStorage/GoogleDrive-debelakj@umich.edu/My Drive/LING 343/Project-2/Project 2 Directory/all_seasons.csv")
+
+# Extract the starting year from the season and convert it to a numerical format
+nba_data$season_start <- as.numeric(sub("-.*", "", nba_data$season))
+
+# Group the data into decades
+nba_data$decade <- cut(nba_data$season_start, breaks = seq(1970, 2030, by = 10), labels = seq(1970, 2020, by = 10))
+
+# Calculate the average age, height, and weight per decade
+decade_trends <- nba_data %>%
+  group_by(decade) %>%
+  summarise(
+    AverageAge = mean(age, na.rm = TRUE),
+    AverageHeight = mean(player_height, na.rm = TRUE),
+    AverageWeight = mean(player_weight, na.rm = TRUE)
+  )
+
+# Plotting each attribute in separate plots
+
+# Average Age by Decade
+ggplot(decade_trends, aes(x = decade, y = AverageAge)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "blue", size = 2) +
+  labs(title = "Average Age of NBA Players by Decade", x = "Decade", y = "Average Age") +
+  theme_minimal()
+
+# Average Height by Decade
+ggplot(decade_trends, aes(x = decade, y = AverageHeight)) +
+  geom_line(color = "green", size = 1) +
+  geom_point(color = "green", size = 2) +
+  labs(title = "Average Height of NBA Players by Decade", x = "Decade", y = "Average Height (cm)") +
+  theme_minimal()
+
+# Average Weight by Decade
+ggplot(decade_trends, aes(x = decade, y = AverageWeight)) +
+  geom_line(color = "red", size = 1) +
+  geom_point(color = "red", size = 2) +
+  labs(title = "Average Weight of NBA Players by Decade", x = "Decade", y = "Average Weight (kg)") +
+  theme_minimal()
+
+```
+
+#### **1. Changes in Physical Attributes Over the Years**
+
+-   **Age**: There has been a slight increase in the average age of players, suggesting that players are maintaining longer careers, possibly due to improved training and medical support.
+
+-   **Height and Weight**: The data showed a gradual increase in both height and weight over the decades, reflecting the evolving nature of the game which favors taller and more physically imposing players. However, it is important to note that weight and height have taken slight decrease in the most recent decade, which may reflect on a less physical game of basketball.
+
+```{r}
+
+# Calculating average performance metrics per player
+career_performance <- nba_data %>%
+  group_by(player_name) %>%
+  summarise(
+    AveragePoints = mean(pts, na.rm = TRUE),
+    AverageRebounds = mean(reb, na.rm = TRUE),
+    AverageAssists = mean(ast, na.rm = TRUE)
+  )
+
+# Scatter plot showing performance metrics
+ggplot(career_performance, aes(x = AveragePoints, y = AverageRebounds, size = AverageAssists)) +
+  geom_point(alpha = 0.6, color = "darkblue") +
+  labs(title = "Player Career Performance: Points vs. Rebounds (Size by Assists)",
+       x = "Average Points per Game",
+       y = "Average Rebounds per Game",
+       size = "Average Assists per Game") +
+  theme_minimal()
+
+```
+
+#### **2. Trends in Players’ Performance Metrics**
+
+-   **Points**: Players who maintain higher average points per game tend to have shorter peaks but high impact during those peaks.
+
+-   **Rebounds and Assists**: There is a variability in rebounds and assists, suggesting specialized roles within teams that either focus on defensive plays or playmaking.
+
+```{r}
+
+# Categorize players as 'International' or 'USA'
+nba_data$player_origin <- ifelse(nba_data$country == "USA", "USA", "International")
+
+# Calculate the proportion of international players per season
+international_trends <- nba_data %>%
+  group_by(season) %>%
+  summarise(TotalPlayers = n(),
+            InternationalPlayers = sum(player_origin == "International"),
+            ProportionInternational = InternationalPlayers / TotalPlayers * 100) %>%
+  arrange(desc(season))
+
+# Plotting the trend of international players over seasons
+ggplot(international_trends, aes(x = season, y = ProportionInternational)) +
+  geom_line(color = "purple") +
+  geom_point(color = "purple") +
+  labs(title = "Proportion of International Players in the NBA Over Seasons",
+       x = "Season",
+       y = "Proportion of International Players (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+
+```
+
+#### **3. Evolution of International Player Proportion**
+
+The proportion of international players has increased significantly over the years. This trend underscores the NBA’s expanding global influence and the increasing success of international recruitment and development programs.
+
+```{r}
+
+# Correcting 'draft_round' for undrafted players
+nba_data$draft_round <- ifelse(nba_data$draft_round == "0", "Undrafted", nba_data$draft_round)
+
+# Aggregating data by draft round
+draft_impact <- nba_data %>%
+  group_by(draft_round) %>%
+  summarise(
+    CareerGames = max(gp, na.rm = TRUE),  # Maximum games played by any player in each draft round
+    AveragePoints = mean(pts, na.rm = TRUE),  # Average points per game
+    AverageRebounds = mean(reb, na.rm = TRUE),  # Average rebounds per game
+    .groups = 'drop'
+  )
+
+# Scatter plot to show the relationship between draft round and career outcomes
+ggplot(draft_impact, aes(x = CareerGames, y = AveragePoints, color = draft_round)) +
+  geom_point(size = 3) +
+  geom_text(aes(label=draft_round), vjust=1.5, color="black") +
+  labs(title = "Impact of Draft Round on Career Games and Points",
+       x = "Maximum Career Games Played",
+       y = "Average Points per Game") +
+  scale_color_brewer(type = "qual", palette = "Set2") +
+  theme_minimal()
+
+
+```
+
+#### **4. Impact of the NBA Draft on Players' Careers**
+
+-   **Drafted vs. Undrafted**: Drafted players generally show better career longevity and performance metrics compared to undrafted players. However, several undrafted players have made significant impacts, indicating that while the draft is a good indicator of potential, it is not the sole determinant of success.
+
+-   **Draft Round Impact**: There is a noticeable decrease in average career games and performance metrics as the draft rounds progress, highlighting the predictive value of higher draft picks.
